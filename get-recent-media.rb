@@ -1,3 +1,5 @@
+require './config/app'
+require 'config/app'
 require 'rubygems'
 require 'bundler/setup'
 
@@ -5,16 +7,9 @@ require 'httparty'
 require 'instagram'
 require 'json'
 
-# Instagram access token
-access_token = ''
-
-# Slack incoming webhook URL
-webhook_url = ''
-
 Instagram.configure do |config|
-	# Instagram client information https://instagram.com/developer/clients/manage/
-	config.client_id = ''
-	config.client_secret = ''
+	config.client_id = InstagramSlack::Config::Instagram[:client_id]
+	config.client_secret = InstagramSlack::Config::Instagram[:client_secret]
 end
 
 user = ARGV[0]
@@ -32,7 +27,7 @@ ensure
 	f.close unless f.nil?
 end
 
-client = Instagram.client(:access_token => access_token)
+client = Instagram.client(:access_token => InstagramSlack::Config::Instagram[:access_token])
 
 recent_media = client.user_recent_media(user, :min_timestamp => min_timestamp)
 
@@ -65,15 +60,19 @@ if attachments.length == 0
 end
 
 payload = {
-	:channel => '#news',
 	:text => 'New Instagram ' + (attachments.length == 1 ? 'post' : 'posts') + ' from *@' + client.user(user).username.to_s + '*',
 	:username => 'ig beta',
 	:attachments => attachments,
 }
 
+if defined? InstagramSlack::Config::Slack[:channel]
+	payload[:channel] = InstagramSlack::Config::Slack[:channel]
+end
+
 # puts payload
 
-HTTParty.post(webhook_url, body: { payload: payload.to_json })
+HTTParty.post(InstagramSlack::Config::Slack[:webhook_url], body: { payload: payload.to_json })
+
 f = File.new(min_timestamp_file, 'w')
 f.write(min_timestamp)
 f.close
